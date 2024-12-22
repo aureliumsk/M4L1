@@ -20,13 +20,28 @@ def callback_query(call):
     prize_id = call.data
     user_id = call.message.chat.id
 
-    img = manager.get_prize_img(prize_id)
-    with open(f'img/{img}', 'rb') as photo:
-        bot.send_photo(user_id, photo)
-
+    if manager.winners_count(prize_id) > 3:
+        res = manager.add_winner(user_id, prize_id)
+        if res:
+            img = manager.get_prize_img(prize_id)
+            with open(f'img/{img}', 'rb') as photo:
+                bot.send_photo(user_id, photo, caption="Поздравляем! Ты получил картинку!")
+        else:
+            bot.send_message(user_id, "Ты уже получил картинку!")
+    else:
+        bot.send_message(user_id, "К сожалению, ты не успел получить картинку! Попробуй в следующий раз)")
+        
+@bot.message_handler(commands=['rating'])
+def handle_rating(message):
+    res = manager.get_rating() 
+    res = [f'| @{x[0]:<11} | {x[1]:<11}|\n{"_"*26}' for x in res]
+    res = '\n'.join(res)
+    res = f'|USER_NAME    |COUNT_PRIZE|\n{"_"*26}\n' + res
+    bot.send_message(message.chat.id, res)
 
 def send_message():
     prize_id, img = manager.get_random_prize()[:2]
+    print("Hello, World!")
     manager.mark_prize_used(prize_id)
     hide_img(img)
     for user in manager.get_users():
@@ -35,9 +50,10 @@ def send_message():
         
 
 def shedule_thread():
-    schedule.every().minute.do(send_message) # Здесь ты можешь задать периодичность отправки картинок
+    schedule.every(1).minute.do(send_message) # Здесь ты можешь задать периодичность отправки картинок
     while True:
         schedule.run_pending()
+        print("Pending!")
         time.sleep(1)
 
 @bot.message_handler(commands=['start'])
@@ -64,7 +80,7 @@ if __name__ == '__main__':
     manager.create_tables()
 
     polling_thread = threading.Thread(target=polling_thread)
-    polling_shedule  = threading.Thread(target=shedule_thread)
+    polling_shedule = threading.Thread(target=shedule_thread)
 
     polling_thread.start()
     polling_shedule.start()
